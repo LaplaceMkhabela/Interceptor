@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>INTERCEPTOR | Command Center</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#131313", "surface-tint": "#e9c400", "on-surface-variant": "#d0c6ab",
+              "tertiary-container": "#00f1ff", "error-container": "#93000a", "tertiary-fixed-dim": "#00dbe8",
+              "on-primary-container": "#705e00", "on-surface": "#e5e2e1", "surface-variant": "#353534",
+              "error": "#ffb4ab", "surface-container-high": "#2a2a2a", "surface-container": "#201f1f",
+              "primary-container": "#ffd700", "surface-container-low": "#1c1b1b", "background": "#131313",
+              "surface": "#131313", "surface-container-lowest": "#0e0e0e", "tertiary": "#defcff",
+              "primary": "#fff6df", "outline-variant": "#4d4732", "primary-fixed-dim": "#e9c400",
+              "surface-container-highest": "#353534"
+            },
+            fontFamily: { headline: ["Inter"], body: ["Inter"], label: ["Space Grotesk"] }
+          }
+        }
+      }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        /* Agent Animations */
+        .orb-gradient { background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, rgba(255, 215, 0, 0) 70%); }
+        .orb-ring { border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 50%; position: absolute; }
+        
+        .idle-pulse { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .scan-wave { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; border-color: #FFD700; opacity: 0.8; }
+        
+        /* Nested Layering Helper */
+        .glass-panel { background: rgba(28, 27, 27, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(77, 71, 50, 0.15); }
+    </style>
+</head>
+<body class="bg-surface-dim text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container min-h-screen" x-data="interceptorApp()" x-init="initApp()">
+
+    <header class="fixed top-0 w-full z-50 bg-[#131313]/80 backdrop-blur-xl shadow-[0px_24px_48px_rgba(0,0,0,0.5)]">
+        <div class="flex items-center justify-between px-6 h-16 w-full max-w-7xl mx-auto">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-[#FFD700]">security</span>
+                <h1 class="text-xl font-black text-[#FFD700] tracking-tighter font-headline uppercase">INTERCEPTOR</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex gap-6 mr-6">
+                    <span class="font-label text-xs tracking-widest" :class="status === 'SECURE' ? 'text-primary-container' : 'text-error'">STATUS: <span x-text="status"></span></span>
+                    <span class="font-label text-xs tracking-widest text-on-surface-variant">UPLINK: ACTIVE</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="pt-24 pb-32 px-6 min-h-screen flex flex-col items-center">
+        
+        <div x-show="currentTab === 'dashboard'" class="w-full flex flex-col items-center animate-fade-in" x-transition>
+            
+            <section class="relative w-full max-w-lg aspect-square flex items-center justify-center mb-12">
+                <div class="absolute inset-0 orb-gradient" :class="isScanning ? 'animate-ping opacity-30' : 'idle-pulse'"></div>
+                <div class="orb-ring w-24 h-24" :class="isScanning ? 'scan-wave' : 'opacity-80'"></div>
+                <div class="orb-ring w-48 h-48" :class="isScanning ? 'scan-wave animation-delay-200' : 'opacity-40'"></div>
+                <div class="orb-ring w-72 h-72" :class="isScanning ? 'scan-wave animation-delay-400' : 'opacity-20'"></div>
+                
+                <div class="relative z-10 text-center">
+                    <span class="font-label text-[10px] tracking-[0.3em] text-[#FFD700] block mb-2" x-text="isScanning ? 'ANALYZING_PAYLOAD' : 'SYSTEM_READY'"></span>
+                    <h2 class="text-4xl md:text-5xl font-black font-headline tracking-tighter text-primary" x-text="isScanning ? 'PROCESSING' : 'SCANNER ACTIVE'"></h2>
+                </div>
+            </section>
+
+            <section class="w-full max-w-2xl glass-panel p-8 rounded-2xl shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1 h-full bg-primary-container"></div>
+                
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="font-label text-xs tracking-widest text-on-surface-variant uppercase">Intercept Protocol</label>
+                        <span class="font-label text-[10px] text-primary-container/60">REF_ID: 99x-INT</span>
+                    </div>
+                    <div class="relative">
+                        <input x-model="payloadText" :disabled="isScanning" class="w-full bg-surface-container-lowest border-0 py-5 px-6 text-on-surface placeholder:text-on-surface-variant/40 rounded-xl focus:ring-2 focus:ring-primary-container transition-all font-body" placeholder="Paste URL or Message to Intercept" type="text"/>
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/50">link</span>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <button @click="submitScan()" :disabled="isScanning || !payloadText" class="w-full bg-primary-container hover:bg-primary-fixed-dim disabled:opacity-50 disabled:cursor-not-allowed py-5 rounded-xl flex items-center justify-center gap-3 transition-all shadow-[0_0_30px_rgba(255,215,0,0.2)]">
+                        <span class="text-on-primary-container font-black font-headline tracking-widest uppercase" x-text="isScanning ? 'INTERCEPTING...' : 'SCAN INPUT'"></span>
+                        <span class="material-symbols-outlined text-on-primary-container">terminal</span>
+                    </button>
+                </div>
+
+                <div x-show="currentResult" class="mt-8 p-6 bg-surface-container-lowest rounded-xl border-l-4" :class="{'border-primary-container': currentResult?.status==='Clear', 'border-error': currentResult?.status==='Critical', 'border-[orange]': currentResult?.status==='Medium'}">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-label text-sm uppercase tracking-widest text-on-surface-variant">Threat Level: <span :class="{'text-primary-container': currentResult?.status==='Clear', 'text-error': currentResult?.status==='Critical', 'text-[orange]': currentResult?.status==='Medium'}" x-text="currentResult?.status"></span></span>
+                        <span class="font-label text-xs text-on-surface-variant">Score: <span x-text="currentResult?.score"></span>/10</span>
+                    </div>
+                    <p class="text-sm font-body text-on-surface" x-text="currentResult?.report"></p>
+                </div>
+            </section>
+
+            <section class="w-full max-w-2xl mt-12" x-show="dailyTip">
+                <div class="bg-surface-container-high rounded-xl p-6 flex items-start gap-5 border-l-4 border-tertiary-container/40">
+                    <div class="bg-tertiary-container/10 p-3 rounded-lg">
+                        <span class="material-symbols-outlined text-tertiary-fixed-dim">shield</span>
+                    </div>
+                    <div>
+                        <h3 class="font-label text-xs tracking-widest text-on-surface-variant uppercase mb-1" x-text="dailyTip?.title"></h3>
+                        <p class="text-on-surface text-sm font-body leading-relaxed" x-text="dailyTip?.content"></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div x-show="currentTab === 'history'" class="w-full max-w-3xl flex flex-col items-center" style="display: none;">
+            <div class="w-full flex justify-between items-end mb-8 border-b border-surface-container-high pb-4">
+                <div>
+                    <h2 class="text-3xl font-black font-headline text-primary">INTELLIGENCE LOG</h2>
+                    <span class="font-label text-xs text-on-surface-variant">RECENT INTERCEPTS</span>
+                </div>
+                <div class="text-right flex gap-6">
+                    <div>
+                        <div class="font-label text-[10px] text-on-surface-variant uppercase">Total Scans</div>
+                        <div class="font-headline font-bold text-xl text-primary" x-text="stats.totalScans"></div>
+                    </div>
+                    <div>
+                        <div class="font-label text-[10px] text-on-surface-variant uppercase">Threats Neutralized</div>
+                        <div class="font-headline font-bold text-xl text-primary-container" x-text="stats.threatsNeutralized"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full flex flex-col gap-4">
+                <template x-for="report in history" :key="report._id">
+                    <div class="bg-surface-container-low p-5 rounded-xl flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-label text-xs text-surface-variant px-3 py-1 rounded-full" 
+                                  :class="{'bg-primary-container': report.status === 'Clear', 'bg-error text-on-error': report.status === 'Critical', 'bg-[orange] text-black': report.status === 'Medium'}" 
+                                  x-text="report.status"></span>
+                            <span class="font-label text-[10px] text-on-surface-variant" x-text="new Date(report.timestamp).toLocaleString()"></span>
+                        </div>
+                        <p class="font-body text-sm text-on-surface truncate" x-text="report.payload"></p>
+                        <p class="font-body text-xs text-on-surface-variant bg-surface-container-lowest p-3 rounded" x-text="report.report"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div x-show="currentTab === 'drills'" class="w-full max-w-3xl flex flex-col items-center" style="display: none;">
+            <h2 class="text-3xl font-black font-headline text-primary mb-8 self-start">TRAINING PROTOCOLS</h2>
+            
+            <div class="w-full flex flex-col gap-6" x-show="!activeDrill">
+                <template x-for="drill in drills" :key="drill._id">
+                    <button @click="startDrill(drill)" class="w-full text-left bg-surface-container-low hover:bg-surface-container-high transition-colors p-6 rounded-xl border border-outline-variant/15 flex justify-between items-center group">
+                        <div>
+                            <span class="font-label text-[10px] text-primary-container block mb-1 uppercase" x-text="drill.category"></span>
+                            <h3 class="font-headline font-bold text-lg text-primary" x-text="drill.title"></h3>
+                        </div>
+                        <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container transition-colors">play_arrow</span>
+                    </button>
+                </template>
+            </div>
+
+            <div x-show="activeDrill" class="w-full glass-panel p-8 rounded-2xl">
+                <div class="flex justify-between items-center mb-6 border-b border-surface-container-high pb-4">
+                    <span class="font-label text-xs text-primary-container" x-text="activeDrill?.category"></span>
+                    <button @click="activeDrill = null; drillResult = null" class="text-xs font-label text-on-surface-variant hover:text-primary">ABORT</button>
+                </div>
+                
+                <h3 class="text-xl font-body text-on-surface mb-8" x-text="activeDrill?.scenario"></h3>
+                
+                <div class="flex flex-col gap-4" x-show="!drillResult">
+                    <template x-for="option in activeDrill?.options">
+                        <button @click="submitAnswer(option)" class="text-left bg-surface-container-highest p-4 rounded-xl font-body text-sm text-on-surface hover:border-primary-container border border-transparent transition-all" x-text="option.text"></button>
+                    </template>
+                </div>
+
+                <div x-show="drillResult" class="mt-6 p-6 rounded-xl" :class="drillResult.isCorrect ? 'bg-primary-container/10 border border-primary-container/30' : 'bg-error-container/20 border border-error/30'">
+                    <h4 class="font-headline font-bold text-lg mb-2" :class="drillResult.isCorrect ? 'text-primary-container' : 'text-error'" x-text="drillResult.isCorrect ? 'PROTOCOL MASTERED' : 'BREACH DETECTED'"></h4>
+                    <p class="text-sm font-body text-on-surface mb-6" x-text="activeDrill?.explanation"></p>
+                    <button @click="activeDrill = null; drillResult = null" class="bg-surface-container-highest px-6 py-3 rounded-xl font-label text-xs tracking-widest text-on-surface hover:text-primary-container transition-colors border border-outline-variant/30">RETURN TO DRILLS</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-4 px-8 bg-[#131313]/90 backdrop-blur-md border-t border-[#4D4732]/15">
+        <button @click="setTab('dashboard')" class="flex flex-col items-center justify-center rounded-xl py-1 px-4 duration-150 transition-all" :class="currentTab === 'dashboard' ? 'text-[#FFD700] bg-[#FFD700]/10' : 'text-[#E5E2E1]/50 hover:text-[#FFD700]'">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="font-label text-[10px] uppercase tracking-widest mt-1">DASHBOARD</span>
+        </button>
+        <button @click="setTab('history')" class="flex flex-col items-center justify-center rounded-xl py-1 px-4 duration-150 transition-all" :class="currentTab === 'history' ? 'text-[#FFD700] bg-[#FFD700]/10' : 'text-[#E5E2E1]/50 hover:text-[#FFD700]'">
+            <span class="material-symbols-outlined">history</span>
+            <span class="font-label text-[10px] uppercase tracking-widest mt-1">HISTORY</span>
+        </button>
+        <button @click="setTab('drills')" class="flex flex-col items-center justify-center rounded-xl py-1 px-4 duration-150 transition-all" :class="currentTab === 'drills' ? 'text-[#FFD700] bg-[#FFD700]/10' : 'text-[#E5E2E1]/50 hover:text-[#FFD700]'">
+            <span class="material-symbols-outlined">ads_click</span>
+            <span class="font-label text-[10px] uppercase tracking-widest mt-1">DRILLS</span>
+        </button>
+    </nav>
+
+    <div class="fixed inset-0 pointer-events-none opacity-[0.03] z-[100]" style="background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');"></div>
+
+    <script>
+        function interceptorApp() {
+            return {
+                currentTab: 'dashboard',
+                isScanning: false,
+                payloadText: '',
+                currentResult: null,
+                status: 'SECURE',
+                dailyTip: null,
+                history: [],
+                drills: [],
+                stats: { totalScans: 0, threatsNeutralized: 0 },
+                activeDrill: null,
+                drillResult: null,
+
+                async initApp() {
+                    this.fetchTip();
+                    this.fetchHistory();
+                    this.fetchDrills();
+                    this.fetchStats();
+                },
+
+                setTab(tab) {
+                    this.currentTab = tab;
+                    if(tab === 'history') { this.fetchHistory(); this.fetchStats(); }
+                },
+
+                async fetchTip() {
+                    const res = await fetch('/api/tip');
+                    this.dailyTip = await res.json();
+                },
+
+                async fetchHistory() {
+                    const res = await fetch('/api/history');
+                    this.history = await res.json();
+                },
+
+                async fetchDrills() {
+                    const res = await fetch('/api/drills');
+                    this.drills = await res.json();
+                },
+                
+                async fetchStats() {
+                    const res = await fetch('/api/stats');
+                    this.stats = await res.json();
+                },
+
+                async submitScan() {
+                    if(!this.payloadText) return;
+                    this.isScanning = true;
+                    this.currentResult = null;
+                    
+                    try {
+                        const res = await fetch('/api/scan', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ payloadText: this.payloadText })
+                        });
+                        const data = await res.json();
+                        this.currentResult = data;
+                        if(data.status === 'Critical' || data.status === 'Medium') {
+                            this.status = 'BREACH';
+                        } else {
+                            this.status = 'SECURE';
+                        }
+                    } catch(err) {
+                        console.error("Scan failed", err);
+                    } finally {
+                        this.isScanning = false;
+                        this.payloadText = ''; // Clear input
+                    }
+                },
+
+                startDrill(drill) {
+                    this.activeDrill = drill;
+                    this.drillResult = null;
+                },
+
+                submitAnswer(option) {
+                    this.drillResult = option;
+                    if(option.isCorrect) {
+                        // Trigger Confetti Celebration
+                        confetti({
+                            particleCount: 150,
+                            spread: 70,
+                            origin: { y: 0.6 },
+                            colors: ['#FFD700', '#131313', '#E9C400']
+                        });
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

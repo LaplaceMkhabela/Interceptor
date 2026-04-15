@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: interceptor_app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      # Overrides the local .env to point to the Docker network's MongoDB
+      - MONGODB_URI=mongodb://db:27017/interceptor
+      # Pulls the GROQ key from your host machine's .env file
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mongo:6.0
+    container_name: interceptor_db
+    ports:
+      - "27017:27017"
+    volumes:
+      # Mounts a named volume to persist MongoDB data
+      - interceptor_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  interceptor_data:

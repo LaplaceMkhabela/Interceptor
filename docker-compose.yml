@@ -11,7 +11,7 @@ services:
       # Overrides the local .env to point to the Docker network's MongoDB
       - MONGODB_URI=mongodb://db:27017/interceptor
       # Pulls the GROQ key from your host machine's .env file
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_API_KEY=${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}
     depends_on:
       - db
     restart: unless-stopped
